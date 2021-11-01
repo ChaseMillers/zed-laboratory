@@ -6,7 +6,7 @@ import Stats from 'stats.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
 import PortalVertex from './shaders/powerVertex.glsl'
-import PortalFragment from './shaders/powerFragment.glsl'
+import PowerFragment from './shaders/powerFragment.glsl'
 
 const AppTry = () => {
   
@@ -15,6 +15,13 @@ const AppTry = () => {
   const raycaster = new THREE.Raycaster()
 
   useEffect(() => {
+
+	/**
+      DEBUGING UI press H to toggle
+    **/
+	const gui = new dat.GUI({ closed: true, hideable: true, width: 400})
+	const debugObject = {}
+
     /**
     STATS
     **/
@@ -42,11 +49,6 @@ const AppTry = () => {
     cameraFocus.position.x = -.4
     scene.add(cameraFocus)
 
-    //Renderer
-    const renderer = new THREE.WebGL1Renderer()
-    renderer.setSize( sizes.width, sizes.height );
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)) // Keeps pixel ratio between 1-2
-    renderer.outputEncoding = THREE.sRGBEncoding
 
     //Updating
     window.addEventListener("resize", ()=>
@@ -79,18 +81,12 @@ const AppTry = () => {
 		camera.position.x = camX + mouse.x * .1
 		camera.position.y = camY + mouse.y * .1
 	})
-  
 
-    /**
-    UI Parameter Values
-    **/
-    const parameters = {
-      color: 0xff,
-      spinAnimation:()=>{
-        gsap.to(horseHeadGroup.rotation, { duration: 1, y: horseHeadGroup.rotation.y + 10 })
-      },
-      zedColor: 0xffffff
-    }
+	//Renderer
+	const renderer = new THREE.WebGL1Renderer()
+	renderer.setSize( sizes.width, sizes.height );
+	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)) // Keeps pixel ratio between 1-2
+	renderer.outputEncoding = THREE.sRGBEncoding; // for post processing pass
 
      /**
     TEXTURES
@@ -99,7 +95,6 @@ const AppTry = () => {
 
     const textureLoader = new THREE.TextureLoader(loadingManager)
     
-    const matcapHorse = textureLoader.load('/images/matcaps/3new.png')
     const darkBlue = textureLoader.load('/images/matcaps/5New.png')
 	const alphaColorTexture = textureLoader.load('/images/alphaColors.png')
 	const colorTexture = textureLoader.load('/images/color.png')
@@ -113,13 +108,26 @@ const AppTry = () => {
 	/**
     Materials
     **/
-	const horseHeadMaterial = new THREE.MeshMatcapMaterial({  //MeshBasicMaterial for no lights or MeshStandard for best all around. 
-      matcap: matcapHorse,
-    })
 
-    const zedMaterial = new THREE.MeshBasicMaterial({  
-      color: parameters.zedColor,
-    })
+	let colorSelect = [
+		0xffffff, // White
+		0xff0000, // Red
+		0x5d5dff, // Blue
+		0xff1e, // Green
+		0xff00d1, // Pink
+		0xffe1, // Light Blue
+		0xe1ff00, // Yellow
+		0xff6800, // Orange
+		0x0, // black
+	]
+
+    // const zedMaterial = new THREE.MeshBasicMaterial({  
+    //   color: colorSelect[0],
+    // })
+
+	const zedMaterial = new THREE.MeshBasicMaterial({  
+		color: colorSelect[0],
+	  })
 
 	const sceneMaterial = new THREE.MeshMatcapMaterial({  
 		map: colorTexture,
@@ -138,14 +146,27 @@ const AppTry = () => {
       opacity: .0,
     })
 
+	
+		/*
+	CUSTOM SHADERS
+	*/    
+	
+	// Power Shader 
+	let powerMaterial = new THREE.ShaderMaterial({
+	uniforms:
+	{
+		uTime: { value: 0 },
+		uColorStart: { value: new THREE.Color(colorSelect[1]) },
+		uColorEnd: { value: new THREE.Color(colorSelect[2]) }
+	},
+	vertexShader: PortalVertex, 
+	fragmentShader: PowerFragment,
+	})
 
-    /* 
-    REFLECTIONs 
-    */
-	let floorReflectionMaterial, horseReflectionMaterial, cubeCamera1, cubeCamera2, cubeRenderTarget1,cubeRenderTarget2;
+
+    // Reflections
+	let floorReflectionMaterial, horseReflectionMaterial, cubeCamera1,cubeCamera2, cubeRenderTarget1, cubeRenderTarget2;
 	const reflection=()=> {
-		
-		renderer.outputEncoding = THREE.sRGBEncoding; // for post processing pass
 	
 		// Floor Reflection
 		cubeRenderTarget1 = new THREE.WebGLCubeRenderTarget( 512, {
@@ -155,10 +176,15 @@ const AppTry = () => {
 			encoding: THREE.sRGBEncoding // to prevent the material's shader from recompiling every frame
 		} );
 		cubeCamera1 = new THREE.CubeCamera( .1, 10, cubeRenderTarget1 );
-		cubeCamera1.position.z = 3
-		cubeCamera1.position.x = .4
-		cubeCamera1.position.y = -2
-		scene.add( cubeCamera1 );
+			cubeCamera1.position.z = 3
+			cubeCamera1.position.x = .4
+			cubeCamera1.position.y = -2
+			scene.add( cubeCamera1 );
+
+		floorReflectionMaterial = new THREE.MeshBasicMaterial( {
+			envMap: cubeRenderTarget1.texture,
+			color: 0x011111,
+		} );
 
 		// Horse Head Reflection
 		cubeRenderTarget2 = new THREE.WebGLCubeRenderTarget( 256, {
@@ -170,13 +196,8 @@ const AppTry = () => {
 		cubeCamera2 = new THREE.CubeCamera( .1, 10, cubeRenderTarget2 );
 		cubeCamera2.position.z = 1
 		cubeCamera2.position.y = 1.3
-
 		scene.add( cubeCamera2 );
-	
-		floorReflectionMaterial = new THREE.MeshBasicMaterial( {
-			envMap: cubeRenderTarget1.texture,
-			color: 0x011111,
-		} );
+
 		horseReflectionMaterial = new THREE.MeshBasicMaterial( {
 			envMap: cubeRenderTarget2.texture
 		} );
@@ -186,23 +207,10 @@ const AppTry = () => {
 
 
 
-    // Power Shader Effects
-    let powerColor = {
-      color: '#5d5dff'
-    }
-    let powerMaterial = new THREE.ShaderMaterial({
-      uniforms:
-      {
-        uTime: { value: 0 },
-        uColorStart: { value: new THREE.Color(0xffffff) },
-        uColorEnd: { value: new THREE.Color(powerColor.color) }
-      },
-      vertexShader: PortalVertex.toString(),
-      fragmentShader: PortalFragment.toString()
-    })
-	
-	let mirror = null
-	let horseHead = null
+	/*
+	GLTF LOADER
+	*/
+	let mirror, horseHead, leftDoor, rightDoor, btnGreen, btnBlue, btnRed, btnLeft, btnRight, beforePowerBtns, marbleBlack, btnMaterial
 	const horseHeadGroup = new THREE.Group()
 	const loadScene=()=>{
 
@@ -214,7 +222,6 @@ const AppTry = () => {
 		// GLTF loader
 		const gltfLoader = new GLTFLoader()
 		gltfLoader.setDRACOLoader(dracoLoader)
-	
 		gltfLoader.load(
 		  '/exportPackages/sceneMaya.glb', 
 		  (gltf) =>
@@ -229,37 +236,59 @@ const AppTry = () => {
 			horseHeadGroup.position.z = -1
 			scene.add(horseHeadGroup)
 			
-			const btnGreen = gltf.scene.children.find(child => child.name === 'mesh_5')
-			const btnBlue = gltf.scene.children.find(child => child.name === 'mesh_6')
-			const btnRed = gltf.scene.children.find(child => child.name === 'mesh_7')
-			const btnLeft = gltf.scene.children.find(child => child.name === 'mesh_8')
-			const btnRight = gltf.scene.children.find(child => child.name === 'mesh_9')
+			// scene prep
+			btnGreen = gltf.scene.children.find(child => child.name === 'mesh_5')
+			btnBlue = gltf.scene.children.find(child => child.name === 'mesh_6')
+			btnRed = gltf.scene.children.find(child => child.name === 'mesh_7')
+			btnLeft = gltf.scene.children.find(child => child.name === 'mesh_8')
+			btnRight = gltf.scene.children.find(child => child.name === 'mesh_9')
 			const dome = gltf.scene.children.find(child => child.name === 'mesh_10')
 			const zed = gltf.scene.children.find(child => child.name === 'mesh_11')
 			const power = gltf.scene.children.find(child => child.name === 'mesh_12')
 			mirror = gltf.scene.children.find(child => child.name === 'mesh_13')
-			const opacity = gltf.scene.children.find(child => child.name === 'mesh_14')
+			leftDoor = gltf.scene.children.find(child => child.name === 'mesh_14')
+			rightDoor = gltf.scene.children.find(child => child.name === 'mesh_15')
+			marbleBlack = gltf.scene.children.find(child => child.name === 'mesh_16')
+			const grid = gltf.scene.children.find(child => child.name === 'mesh_17')
 
+			// material assigments
 			horseHead.material = horseReflectionMaterial
 			rotater.material = sceneMaterial
 			harnass.material = zedMaterial
+			zed.material = zedMaterial
 			eye1.material = zedMaterial
 			eye2.material = zedMaterial
 			dome.material = sceneMaterial
-			zed.material = zedMaterial
 			power.material = powerMaterial
 			mirror.material = floorReflectionMaterial
-			opacity.material = opacityMaterial
-
-			// Wireframe Helper, EdgesGeometry will render the hard edges only.
-			const wireframeGeometry = new THREE.EdgesGeometry( horseHead.geometry );
-			const wireframeMaterial = new THREE.LineBasicMaterial( { color: 0x111111 })
-			const wireframe = new THREE.LineSegments( wireframeGeometry, wireframeMaterial );
-			horseHead.add( wireframe );
+			leftDoor.material = sceneMaterial
+			rightDoor.material = sceneMaterial
+			marbleBlack.material = sceneMaterial
 			
+			// Wireframe Helper, EdgesGeometry will render the hard edges only, also WireframeGeometry for all edges.
+			let wireframeGeo = [marbleBlack, horseHead, grid] 
+			const wireframeMaterial = new THREE.LineBasicMaterial( { color: 0x111111 })
+			for (let i =0; i<wireframeGeo.length; ++i){
+				const wireframeGeometry = new THREE.EdgesGeometry( wireframeGeo[i].geometry );
+				const wireframe = new THREE.LineSegments( wireframeGeometry, wireframeMaterial );
+				wireframeGeo[i].add( wireframe );
+			}
+
 			// Button prep
-			btns = [btnRed, btnGreen, btnBlue, btnLeft, btnRight]
-			let btnMaterial = [sceneMaterial, alphaBtns];
+			beforePowerBtns = [ btnRed, btnBlue, btnLeft, btnRight]
+			for (let i =0; i<beforePowerBtns.length; ++i){
+				beforePowerBtns[i].material = sceneMaterial
+				beforePowerBtns[i].position.y = -.0206
+				beforePowerBtns[i].position.z = -.0103
+
+				// add material group
+				beforePowerBtns[i].geometry.addGroup(0, Infinity, 0);
+				beforePowerBtns[i].geometry.addGroup(0, Infinity, 1);
+			}
+
+			// Perpare start btn
+			btns = [btnGreen]
+			btnMaterial = [sceneMaterial, alphaBtns];
 
 			for (let i =0; i<btns.length; ++i){
 				btns[i].geometry.addGroup(0, Infinity, 0);
@@ -273,34 +302,40 @@ const AppTry = () => {
 	}
 	loadScene()
 
+	
+
 		/**
 	 ANIMATIONS Raycaster
 	**/
 	const body = document.querySelector(".render")
-	let intersects = null
-	let activeBtn = null
-	let btns = null
-	let switchLeftRight = null
+	let intersects, activeBtn, btns, btnLeftRightSwitch, doorSwitch
 
 	// Button Logic
 	const btnLogic = (pressedBtn) =>{
+		
 		//Left Arrow - "mesh_8"
 		if(pressedBtn.name === 'mesh_8'){
-			switchLeftRight === 'right' || switchLeftRight === null?
-				switchLeftRight = 'left'
-			: switchLeftRight = null
+			btnLeftRightSwitch === 'right' || btnLeftRightSwitch === undefined?
+				btnLeftRightSwitch = 'left'
+			: btnLeftRightSwitch = undefined
 		}
 		
 		//Right Arrow - "mesh_9"
 		else if(pressedBtn.name === 'mesh_9'){
-			switchLeftRight === 'left' || switchLeftRight === null?
-				switchLeftRight = 'right'
-			: switchLeftRight = null
+			btnLeftRightSwitch === 'left' || btnLeftRightSwitch === undefined?
+				btnLeftRightSwitch = 'right'
+			: btnLeftRightSwitch = undefined
 		}
 
 		// Blue Btn - "mesh_7"
 		else if(pressedBtn.name === 'mesh_7'){
-			console.log('Blue Btn Pressed')
+			let randomInt = Math.floor(Math.random() * 9) // select random number
+			debugObject.portalColorStart = colorSelect[randomInt]
+			randomInt = Math.floor(Math.random() * 9) // select another random number
+			debugObject.portalColorEnd = colorSelect[randomInt]
+			// Change color based on random choice
+			powerMaterial.uniforms.uColorStart.value.set(debugObject.portalColorStart)
+			powerMaterial.uniforms.uColorEnd.value.set(debugObject.portalColorEnd)
 		}
 
 		// Red Btn "mesh_6"
@@ -310,7 +345,35 @@ const AppTry = () => {
 
 		// Green Btn "mesh_5"
 		else if(pressedBtn.name === 'mesh_5'){
-			console.log('Green Btn Pressed')
+			doorSwitch = !doorSwitch;
+			if (doorSwitch){
+				gsap.to(leftDoor.position, { duration: 1, delay: 0, x: -3 })
+				gsap.to(rightDoor.position, { duration: 1, delay: 0, x: 3 })
+
+				// Activate remaining Btns
+				btns = [btnRed, btnGreen, btnBlue, btnLeft, btnRight]
+
+				for (let i =0; i<btns.length; ++i){
+					btns[i].position.y = 0
+					btns[i].position.z = 0
+					btns[i].material = btnMaterial
+				}
+			}
+			else {
+				gsap.to(leftDoor.position, { duration: 1, delay: 0, x: 0 })
+				gsap.to(rightDoor.position, { duration: 1, delay: 0, x: 0 })
+
+				// Disable remaining Btns
+				btns = [btnGreen]
+				// Change material back
+				beforePowerBtns = [ btnRed, btnBlue, btnLeft, btnRight]
+				for (let i =0; i<beforePowerBtns.length; ++i){
+					beforePowerBtns[i].material = sceneMaterial
+					beforePowerBtns[i].position.y = -.0206
+					beforePowerBtns[i].position.z = -.0103
+				}
+				
+			}
 		}
 	}
 
@@ -329,6 +392,7 @@ const AppTry = () => {
 			storedBtn.position.y = 0
 			storedBtn.position.z = 0	
 			btnLogic(activeBtn)	
+			storedBtn = null
 		}	
 	})
 	
@@ -353,9 +417,9 @@ const AppTry = () => {
 			};
 		}	
 	};
+
 	
-    
-	
+
 	/*
 	ANIMATION
 	*/
@@ -383,10 +447,10 @@ const AppTry = () => {
 		}
 
 		//Buttons Left/Right
-		if(switchLeftRight === 'right'){
+		if(btnLeftRightSwitch === 'right'){
 			horseHeadGroup.rotation.y += deltaTime * .001 
 		}
-		if(switchLeftRight === 'left'){
+		if(btnLeftRightSwitch === 'left'){
 			horseHeadGroup.rotation.y -= deltaTime * .001 
 		}
 
@@ -398,34 +462,35 @@ const AppTry = () => {
 
 		//Render
 		renderer.render( scene, camera );
+	
 		requestAnimationFrame( animate );
 		stats.end()
 	};
 	animate()
-  
     
+
     
-    /**
-      DEBUGING UI press H to toggle
-    **/
-    const gui = new dat.GUI({ closed: true, width: 400})
-  
-    
-    const debugObject = {}
-    debugObject.portalColorStart = '#ff0000'
-    debugObject.portalColorEnd = '#5d5dff'
-    
+	// Debug parameters
+
+    debugObject.portalColorStart = colorSelect[1]
+    debugObject.portalColorEnd = colorSelect[2]
     gui
-      .addColor(debugObject, 'portalColorEnd')
+      .addColor(debugObject, 'portalColorStart')
       .onChange(() =>
       {
-          powerMaterial.uniforms.uColorEnd.value.set(debugObject.portalColorEnd)
+		powerMaterial.uniforms.uColorStart.value.set(debugObject.portalColorStart)
       })
+
+	gui
+	.addColor(debugObject, 'portalColorEnd')
+	.onChange(() =>
+	{
+		powerMaterial.uniforms.uColorEnd.value.set(debugObject.portalColorEnd)
+	})
     
     gui.add(camera.position, 'x').min(-6).max(6).step(.01).name('left-right')
     gui.add(camera.position, 'y').min(-6).max(6).step(.01).name('up-down')
     gui.add(camera.position, 'z').min(-6).max(6).step(.01).name('backward-forward')
-    // gui.add(group, 'lights off').name
     
 
     // MOUNT TO OUR REFRENCE 
