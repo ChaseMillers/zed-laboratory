@@ -7,7 +7,6 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
 import PortalVertex from './shaders/powerVertex.glsl'
 import PowerFragment from './shaders/powerFragment.glsl'
-import Laser from 'three-laser-pointer/src';
 import THREEx1 from './threex.laserBeam.js'
 import THREEx2 from './threex.laserCooked.js'
 
@@ -206,7 +205,6 @@ const App = () => {
 	reflection()
 
 
-
 	/*
 	GLTF LOADER
 	*/
@@ -377,7 +375,6 @@ const App = () => {
 
 	let redValue = 100
 	let redLightSwitch = true
-	let powerOverLoad = false
 	const beamOnShell=(elapsedTime)=>{
 		// if mesh-16 'ethereum shell' is touched by laser. 
 		// shellBurnPercent starts at 0 meaning grey, counting up to 100 to = Red
@@ -405,7 +402,6 @@ const App = () => {
 			}
 			// Final horse freak out before closing doors. 
 			if (shellBurnPercent > 300){
-				powerOverLoad = true
 				SystemOverload(elapsedTime)
 			}
 			// turn off lasers shortly after power overload.
@@ -489,10 +485,12 @@ const App = () => {
 	}
 
 	// Button Logic
+	const disableLasers =()=> {if (lasersSwitch) redLaserActivation()}
 	const btnLogic = (pressedBtn) =>{
 		
 		//Left Arrow - "mesh_8"
 		if(pressedBtn.name === 'mesh_7'){
+			disableLasers()
 			btnLeftRightSwitch === 'right' || btnLeftRightSwitch === undefined?
 				btnLeftRightSwitch = 'left'
 			: btnLeftRightSwitch = undefined
@@ -500,6 +498,7 @@ const App = () => {
 		
 		//Right Arrow - "mesh_9"
 		else if(pressedBtn.name === 'mesh_8'){
+			disableLasers()
 			btnLeftRightSwitch === 'left' || btnLeftRightSwitch === undefined?
 				btnLeftRightSwitch = 'right'
 			: btnLeftRightSwitch = undefined
@@ -519,6 +518,7 @@ const App = () => {
 		
 		// Red Btn "mesh_6"
 		else if(pressedBtn.name === 'mesh_5'){
+			btnLeftRightSwitch = undefined
 			redLaserActivation()
 		}
 		
@@ -526,7 +526,6 @@ const App = () => {
 		// Green Btn "mesh_5"
 		else if(pressedBtn.name === 'mesh_4'){
 			doorSwitch = !doorSwitch;
-			const disableLasers =()=> {if (lasersSwitch) redLaserActivation()}
 			if (doorSwitch){
 				gsap.to(leftDoor.position, { duration: 1, delay: 0, x: -3 })
 				gsap.to(rightDoor.position, { duration: 1, delay: 0, x: 3 })
