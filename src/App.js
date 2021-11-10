@@ -75,21 +75,21 @@ const App = () => {
 	camera.lookAt(cameraFocus.position)
 
 	
-
 	//Renderer
 	const renderer = new THREE.WebGL1Renderer()
 	renderer.setSize( sizes.width, sizes.height );
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)) // Keeps pixel ratio between 1-2
 	renderer.outputEncoding = THREE.sRGBEncoding; // for post processing pass
 
+
      /**
     TEXTURES
     **/
     const loadingManager = new THREE.LoadingManager()
-
     const textureLoader = new THREE.TextureLoader(loadingManager)
     
-    const darkBlue = textureLoader.load('/images/matcaps/5New.png')
+    const shellTexture = textureLoader.load('/images/matcaps/11.png')
+	const darkBlue = textureLoader.load('/images/matcaps/5New.png')
 	const alphaColorTexture = textureLoader.load('/images/alphaColors.png')
 	const colorTexture = textureLoader.load('/images/color.png')
 	const normalTexture = textureLoader.load('/images/normal.png')
@@ -114,6 +114,14 @@ const App = () => {
 		0xff6800, // Orange
 		0x0, // black
 	]
+
+	let shellBurnPercent = 0
+	let shellColor = new THREE.Color(`hsl(0, ${shellBurnPercent}%, 30% )`);
+
+	const shellMaterial = new THREE.MeshMatcapMaterial({  
+		color: shellColor,
+		matcap: shellTexture,
+	})
 
 	const zedMaterial = new THREE.MeshBasicMaterial({  
 		color: colorSelect[0],
@@ -225,7 +233,7 @@ const App = () => {
 			const rotater = gltf.scene.children.find(child => child.name === 'mesh_3')
 			horseHeadGroup.add(horseHead, harnass, eyes, rotater)
 			horseHeadGroup.position.z = -1
-			// horseHeadGroup.rotation.y = 1
+			horseHeadGroup.rotation.y = -.5
 			scene.add(horseHeadGroup)
 			
 			// scene prep
@@ -256,7 +264,7 @@ const App = () => {
 			leftDoor.material = sceneMaterial
 			rightDoor.material = sceneMaterial
 			stand.material = sceneMaterial
-			shell.material = sceneMaterial
+			shell.material = shellMaterial
 			grid.material = gridMaterial
 			
 			// Wireframe Helper, EdgesGeometry will render the hard edges only, also WireframeGeometry for all edges.
@@ -325,7 +333,10 @@ const App = () => {
 		laserObjects[i] = laserBeams[i].object3d
 		laserObjects[i].position.z = .8
 		laserObjects[i].position.y = 2.18
-
+		
+		laserObjects[i].rotateY(THREE.Math.degToRad(-90));
+		laserObjects[i].scale.x	= 10	
+		laserObjects[i].visible = false;
 		horseHeadGroup.add( laserObjects[i] )
 	}
 	
@@ -337,9 +348,10 @@ const App = () => {
 
 	let laserReactObjects
 	let laserCooked = []
-	const laserFire =(deltaTime)=>{
-		
-		laserReactObjects =[dome, shell]
+	let activelyCooking = false
+	const laserFire =()=>{
+	
+		laserReactObjects =[dome, shell, btnGreen, btnRed, btnBlue, btnLeft, btnRight]
 		if(laserReactObjects.length){
 			raycaster.ray.intersectPlane(plane, targetLaser);
 			
@@ -350,12 +362,79 @@ const App = () => {
 				laserObjects[i].rotateY(THREE.Math.degToRad(-90));
 			}
 		}
+	
+		let activeObject = THREEx2.LaserCooked.intersects
+		
+		if(activeObject.length && activeObject[0].object.name === "mesh_16"){
+			activelyCooking = true
+		}
+		else {
+			activelyCooking = false
+		}
+	}
+
+
+
+	let redValue = 100
+	let redLightSwitch = true
+	let powerOverLoad = false
+	const beamOnShell=(elapsedTime)=>{
+		// if mesh-16 'ethereum shell' is touched by laser. 
+		// shellBurnPercent starts at 0 meaning grey, counting up to 100 to = Red
+		if(activelyCooking){
+			shellBurnPercent++ 
+			// Color is max red at 100
+			shell.material.color.set(`hsl(0, ${shellBurnPercent}%, 30% )`)
 			
-		// object3d.rotation.x	+= deltaTime * .001 ;
-		// object3d.rotation.y	+= deltaTime * .001 ;
+			// Flashy Red Warnning Lights
+			if (shellBurnPercent > 200){
+				if(redValue === 200) redLightSwitch = false
+				if(redValue === 100) redLightSwitch = true
+				// lights up red
+				if(redLightSwitch && redValue < 200){
+					redValue += 5
+					powerMaterial.uniforms.uColorStart.value.set(`rgb(${redValue}, 0, 0)`)
+					powerMaterial.uniforms.uColorEnd.value.set(`rgb(${redValue}, 0, 0)`)
+				}
+				// turns down red
+				if(!redLightSwitch && redValue > 100){
+					redValue -= 5
+					powerMaterial.uniforms.uColorStart.value.set(`rgb(${redValue}, 0, 0)`)
+					powerMaterial.uniforms.uColorEnd.value.set(`rgb(${redValue}, 0, 0)`)
+				}	
+			}
+			// Final horse freak out before closing doors. 
+			if (shellBurnPercent > 300){
+				powerOverLoad = true
+				SystemOverload(elapsedTime)
+			}
+			// turn off lasers shortly after power overload.
+			if(shellBurnPercent > 380){
+				laserObjects.forEach(laser => {
+					laser.visible = false
+				});
+				activelyCooking = false
+			}
+		}
+		else if(shellBurnPercent > 0){
+			shellBurnPercent--
+			shell.material.color.set(`hsl(0, ${shellBurnPercent}%, 30% )`)
+			powerMaterial.uniforms.uColorStart.value.set(debugObject.portalColorStart)
+			powerMaterial.uniforms.uColorEnd.value.set(debugObject.portalColorEnd)
+		}
 		
 	}
 
+	// Final Curtain Call
+	const SystemOverload=(elapsedTime)=>{
+		
+		gsap.to(horseHeadGroup.rotation, { duration: 3, delay: 0, y: elapsedTime *2})
+		lasersSwitch = false
+		doorSwitch = false
+		btnsClosedDoor()
+		gsap.to(leftDoor.position, { duration: 1, delay: 3, x: 0 })
+		gsap.to(rightDoor.position, { duration: 1, delay: 3, x: 0 })
+	}
 
 	
 	//////////////////////////////////////////////////////////////////////////////////
@@ -371,25 +450,43 @@ const App = () => {
 		camera.position.y = camY + mouse.y * .1
 
 		rayCaster()
-		horseHeadFollowMouse()
-		laserFire()
-		
+		if(lasersSwitch){
+			horseHeadFollowMouse()
+			laserFire()
+		}	
 	}, false)
 	
-
-
-
-
-
-
-
-
 
 		/**
 	 ANIMATIONS Raycaster
 	**/
 	const body = document.querySelector(".render")
-	let intersects, activeBtn, btns, btnLeftRightSwitch, doorSwitch
+	let intersects, activeBtn, btns, btnLeftRightSwitch, doorSwitch, lasersSwitch = false
+
+	// Red laser activation function
+	const redLaserActivation=()=>{
+		// turns on lasers and horse head follow
+		lasersSwitch = !lasersSwitch
+		// makes lasers visible
+		laserObjects.forEach(laser => {
+			laser.visible = !laser.visible
+		});
+	}
+
+	// doorCloseBtnPrep
+	const btnsClosedDoor=()=>{
+		// Disable remaining Btns
+		btns = [btnGreen]
+		// Change material back
+		beforePowerBtns = [ btnRed, btnBlue, btnLeft, btnRight]
+		for (let i =0; i<beforePowerBtns.length; ++i){
+			beforePowerBtns[i].material = sceneMaterial
+			beforePowerBtns[i].position.y = -.0206
+			beforePowerBtns[i].position.z = -.0103
+		}
+		// turn off arrows switch
+		btnLeftRightSwitch = undefined
+	}
 
 	// Button Logic
 	const btnLogic = (pressedBtn) =>{
@@ -419,14 +516,17 @@ const App = () => {
 			powerMaterial.uniforms.uColorEnd.value.set(debugObject.portalColorEnd)
 		}
 
+		
 		// Red Btn "mesh_6"
 		else if(pressedBtn.name === 'mesh_5'){
-			console.log('Red Btn Pressed')
+			redLaserActivation()
 		}
+		
 
 		// Green Btn "mesh_5"
 		else if(pressedBtn.name === 'mesh_4'){
 			doorSwitch = !doorSwitch;
+			const disableLasers =()=> {if (lasersSwitch) redLaserActivation()}
 			if (doorSwitch){
 				gsap.to(leftDoor.position, { duration: 1, delay: 0, x: -3 })
 				gsap.to(rightDoor.position, { duration: 1, delay: 0, x: 3 })
@@ -444,16 +544,8 @@ const App = () => {
 				gsap.to(leftDoor.position, { duration: 1, delay: 0, x: 0 })
 				gsap.to(rightDoor.position, { duration: 1, delay: 0, x: 0 })
 
-				// Disable remaining Btns
-				btns = [btnGreen]
-				// Change material back
-				beforePowerBtns = [ btnRed, btnBlue, btnLeft, btnRight]
-				for (let i =0; i<beforePowerBtns.length; ++i){
-					beforePowerBtns[i].material = sceneMaterial
-					beforePowerBtns[i].position.y = -.0206
-					beforePowerBtns[i].position.z = -.0103
-				}
-				
+				btnsClosedDoor()
+				disableLasers()
 			}
 		}
 	}
@@ -503,12 +595,19 @@ const App = () => {
 	ANIMATION
 	*/
 	let time = Date.now()
+	const clock = new THREE.Clock()
 	const animate =()=> {
 		stats.begin()
+		// Clock
+		const elapsedTime = clock.getElapsedTime()
+
 		// Update objects to move at same speed regardlass of user framerate.
 		const currentTime = Date.now()
 		const deltaTime = currentTime - time
 		time = currentTime
+		
+		//Controls heat of Etherum
+		beamOnShell(elapsedTime)
 
 		// Floor material reflection animation
 		if(mirror){

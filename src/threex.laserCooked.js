@@ -2,7 +2,6 @@ import * as THREE from "three";
 
 
 let THREEx = {}
-
 THREEx.LaserCooked	= function(laserBeam, objects){
 	// for update loop
 	let updateFcts	= []
@@ -39,8 +38,10 @@ THREEx.LaserCooked	= function(laserBeam, objects){
 			let position	= intersects[0].point
 			let distance	= position.distanceTo(raycaster.ray.origin)
 			object3d.scale.x	= distance
+			THREEx.LaserCooked.intersects = intersects
 		}else{
-			object3d.scale.x	= 10			
+			object3d.scale.x	= 10	
+			THREEx.LaserCooked.intersects = this.lastIntersects		
 		}
 		// backup last intersects
 		this.lastIntersects	= intersects

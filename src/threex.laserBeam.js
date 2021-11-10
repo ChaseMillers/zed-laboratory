@@ -27,6 +27,8 @@ THREEx.LaserBeam	= function(){
 		object3d.add(mesh)
 	}
 	return
+
+	
 	
 	function generateLaserBodyCanvas(){
 		// init canvas
