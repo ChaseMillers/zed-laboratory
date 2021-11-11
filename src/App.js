@@ -3,12 +3,12 @@ import * as THREE from "three";
 import gsap from 'gsap'
 import * as dat from 'dat.gui'
 import Stats from 'stats.js'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
-import PortalVertex from './shaders/powerVertex.glsl'
-import PowerFragment from './shaders/powerFragment.glsl'
 import THREEx1 from './threex.laserBeam.js'
 import THREEx2 from './threex.laserCooked.js'
+import materials from "./materials";
+import shaders from "./shaders";
+import reflections from "./reflections"
+import gltfLoad from "./gltfLoader"
 
 const App = () => {
   
@@ -18,14 +18,14 @@ const App = () => {
   useEffect(() => {
 
 	/**
-      DEBUGING UI press H to toggle
+    DEBUGING UI press H to toggle
     **/
 	const gui = new dat.GUI({ closed: true, hideable: true, width: 400})
 	const debugObject = {}
 
-    /**
+    /**********
     STATS
-    **/
+    ************/
     const stats = new Stats()
     stats.showPanel(0) // 0: fps, 1: ms, 2: mb, 3+: custom
     document.body.appendChild(stats.dom)
@@ -62,11 +62,8 @@ const App = () => {
       renderer.setSize( window.innerWidth, window.innerHeight );
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 	})
-   
-    
-	/**
-	 Mouse Window Move
-	**/
+	
+	 // Mouse Window Move
 	const camera = new THREE.PerspectiveCamera( 75, sizes.width/sizes.height);
 	const camX = camera.position.x = .1
 	const camY = camera.position.y = 1.8
@@ -79,147 +76,58 @@ const App = () => {
 	renderer.setSize( sizes.width, sizes.height );
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)) // Keeps pixel ratio between 1-2
 	renderer.outputEncoding = THREE.sRGBEncoding; // for post processing pass
+ 
 
 
-     /**
-    TEXTURES
-    **/
-    const loadingManager = new THREE.LoadingManager()
-    const textureLoader = new THREE.TextureLoader(loadingManager)
-    
-    const shellTexture = textureLoader.load('/images/matcaps/11.png')
-	const darkBlue = textureLoader.load('/images/matcaps/5New.png')
-	const alphaColorTexture = textureLoader.load('/images/alphaColors.png')
-	const colorTexture = textureLoader.load('/images/color.png')
-	const normalTexture = textureLoader.load('/images/normal.png')
-
-	//Texture optimization when using minFilter, images must be divisible by 2! Ex: 512x512, 1024x1024, 512x2048
-	colorTexture.generateMipmaps = false 
-	colorTexture.minFilter = THREE.NearestFilter // NearestFilter will provide better optimization.
-    
-
-	/**
-    Materials
-    **/
-
-	let colorSelect = [
-		0xffffff, // White
-		0xff0000, // Red
-		0x5d5dff, // Blue
-		0xff1e, // Green
-		0xff00d1, // Pink
-		0xffe1, // Light Blue
-		0xe1ff00, // Yellow
-		0xff6800, // Orange
-		0x0, // black
-	]
-
+	/**************************************
+    MATERIALS IMPORT
+    ***************************************/
+	// For reactive shell color
 	let shellBurnPercent = 0
-	let shellColor = new THREE.Color(`hsl(0, ${shellBurnPercent}%, 30% )`);
+	const {
+		// Contains an array of colors
+		colorSelect,
+		gridMaterial,
+		shellMaterial,
+		zedMaterial,
+		laserMaterial,
+		sceneMaterial,
+		alphaBtns,
+	} = materials(shellBurnPercent);
+	
+	
+	/***********************************
+	CUSTOM SHADERS 
+	*************************************/  
+	const {
+		powerMaterial,
+	} = shaders(colorSelect, scene);
 
-	const shellMaterial = new THREE.MeshMatcapMaterial({  
-		color: shellColor,
-		matcap: shellTexture,
-	})
 
-	const zedMaterial = new THREE.MeshBasicMaterial({  
-		color: colorSelect[0],
-	})
-
-	const laserMaterial = new THREE.MeshBasicMaterial({  
-		color: colorSelect[1]
-	})
-
-	const sceneMaterial = new THREE.MeshMatcapMaterial({  
-		map: colorTexture,
-		normalMap: normalTexture,
-		matcap: darkBlue,
-		// side: THREE.DoubleSide
-    })
-	const alphaBtns = new THREE.MeshBasicMaterial({  
-		map: alphaColorTexture,
-		alphaTest: .5,
-	})
-	const gridMaterial = new THREE.MeshBasicMaterial({ 
-		color: 0x111111, 
-		side: THREE.DoubleSide,
-	})
+	/***********************************
+	REFLECTIONS
+	*************************************/ 
+	const {
+		floorReflectionMaterial,
+		cubeCamera1,
+		cubeCamera2,
+		horseReflectionMaterial
+	} = reflections(scene)
 
 	
-		/*
-	CUSTOM SHADERS
-	*/    
-	
-	// Power Shader 
-	let powerMaterial = new THREE.ShaderMaterial({
-		uniforms:
-		{
-			uTime: { value: 0 },
-			uColorStart: { value: new THREE.Color(colorSelect[1]) },
-			uColorEnd: { value: new THREE.Color(colorSelect[2]) }
-		},
-		vertexShader: PortalVertex, 
-		fragmentShader: PowerFragment,
-	})
-
-
-    // Reflections
-	let floorReflectionMaterial, horseReflectionMaterial, cubeCamera1,cubeCamera2, cubeRenderTarget1, cubeRenderTarget2;
-	const reflection=()=> {
-	
-		// Floor Reflection
-		cubeRenderTarget1 = new THREE.WebGLCubeRenderTarget( 512, {
-			format: THREE.RGBFormat,
-			generateMipmaps: true,
-			minFilter: THREE.LinearMipmapLinearFilter,
-			encoding: THREE.sRGBEncoding // to prevent the material's shader from recompiling every frame
-		} );
-		cubeCamera1 = new THREE.CubeCamera( .1, 10, cubeRenderTarget1 );
-			cubeCamera1.position.z = 3
-			cubeCamera1.position.x = .4
-			cubeCamera1.position.y = -2
-			scene.add( cubeCamera1 );
-
-		floorReflectionMaterial = new THREE.MeshBasicMaterial( {
-			envMap: cubeRenderTarget1.texture,
-			color: 0x011111,
-		} );
-
-		// Horse Head Reflection
-		cubeRenderTarget2 = new THREE.WebGLCubeRenderTarget( 256, {
-			format: THREE.RGBFormat,
-			generateMipmaps: true,
-			minFilter: THREE.LinearMipmapLinearFilter,
-			encoding: THREE.sRGBEncoding // to prevent the material's shader from recompiling every frame
-		} );
-		cubeCamera2 = new THREE.CubeCamera( .1, 10, cubeRenderTarget2 );
-		cubeCamera2.position.z = 1
-		cubeCamera2.position.y = 1.3
-		scene.add( cubeCamera2 );
-
-		horseReflectionMaterial = new THREE.MeshBasicMaterial( {
-			envMap: cubeRenderTarget2.texture
-		} );
-
-	}
-	reflection()
-
-
 	/*
 	GLTF LOADER
 	*/
+	const {
+		gltfLoader
+	} = gltfLoad()
+
+
 	let mirror, horseHead, leftDoor, rightDoor, btnGreen, btnBlue, btnRed, btnLeft, btnRight, beforePowerBtns, stand, shell, btnMaterial, grid, dome, power
 	const horseHeadGroup = new THREE.Group()
 	const loadScene=()=>{
 
-		// Draco loader
-		const dracoLoader = new DRACOLoader();
-		dracoLoader.setDecoderConfig({ type: 'js' });
-		dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/'); // use a full url path
-	   
 		// GLTF loader
-		const gltfLoader = new GLTFLoader()
-		gltfLoader.setDRACOLoader(dracoLoader)
 		gltfLoader.load(
 		  '/exportPackages/sceneMaya.glb', 
 		  (gltf) =>
@@ -267,8 +175,8 @@ const App = () => {
 			
 			// Wireframe Helper, EdgesGeometry will render the hard edges only, also WireframeGeometry for all edges.
 			let wireframeGeo = [stand, horseHead] 
-			const wireframeMaterial = new THREE.LineBasicMaterial( { color: 0x111111, blending: THREE.AdditiveBlending })
-			for (let i =0; i<wireframeGeo.length; ++i){
+			const wireframeMaterial = new THREE.LineBasicMaterial( { color: 0x111111})
+			for (let i =0; i<wireframeGeo.length; ++i){ 
 				const wireframeGeometry = new THREE.EdgesGeometry( wireframeGeo[i].geometry );
 				const wireframe = new THREE.LineSegments( wireframeGeometry, wireframeMaterial );
 				wireframeGeo[i].add( wireframe );
