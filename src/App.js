@@ -3,12 +3,12 @@ import * as THREE from "three";
 import gsap from 'gsap'
 import * as dat from 'dat.gui'
 import Stats from 'stats.js'
-import THREEx1 from './threex.laserBeam.js'
-import THREEx2 from './threex.laserCooked.js'
 import materials from "./materials";
 import shaders from "./shaders";
 import reflections from "./reflections"
 import gltfLoad from "./gltfLoader"
+import laserActivation from "./laserActivation"
+import btnFunctionality from './btnFunctionality'
 
 const App = () => {
   
@@ -64,6 +64,7 @@ const App = () => {
 	})
 	
 	 // Mouse Window Move
+	const mouse = new THREE.Vector2()
 	const camera = new THREE.PerspectiveCamera( 75, sizes.width/sizes.height);
 	const camX = camera.position.x = .1
 	const camY = camera.position.y = 1.8
@@ -115,9 +116,9 @@ const App = () => {
 	} = reflections(scene)
 
 	
-	/*
+	/***********************************
 	GLTF LOADER
-	*/
+	************************************/
 	const {
 		gltfLoader
 	} = gltfLoad()
@@ -208,143 +209,49 @@ const App = () => {
 			}
 		)
 	}
-	loadScene()
+	loadScene()	
+	
 
-
-	/*
-	HORSE HEAD FOLLOW
-	*/
-	let target = new THREE.Vector3();
-	const horseHeadFollowMouse =()=>{
-		target.x += ( mouse.x - target.x ) * .09; // .08 creates a slight smoothing 
-		target.z = camera.position.z * .01; // assuming the camera is located at ( 0, 0, z );
-		horseHeadGroup.lookAt( target );
-	}
-
-	/*
+    /*********************
 	LASER!
-	*/
-	// target setup for cursor
-	let plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -2.5);
-	let targetLaser = new THREE.Vector3();
-
-	// perpare lasers
-	let laserBeams = []
-	let laserObjects = []
-	let laserCount = 2
-
-	for (let i=0; i<laserCount; ++i){
-		laserBeams[i] = new THREEx1.LaserBeam()
-
-		laserObjects[i] = laserBeams[i].object3d
-		laserObjects[i].position.z = .8
-		laserObjects[i].position.y = 2.18
-		
-		laserObjects[i].rotateY(THREE.Math.degToRad(-90));
-		laserObjects[i].scale.x	= 10	
-		laserObjects[i].visible = false;
-		horseHeadGroup.add( laserObjects[i] )
-	}
+	**********************/
 	
-
-	// push left/right for eye positions
-	laserObjects[0].position.x = 0.19
-	laserObjects[1].position.x = -0.19
-
-
-	let laserReactObjects
-	let laserCooked = []
-	let activelyCooking = false
-	const laserFire =()=>{
-	
-		laserReactObjects =[dome, shell, btnGreen, btnRed, btnBlue, btnLeft, btnRight]
-		if(laserReactObjects.length){
-			raycaster.ray.intersectPlane(plane, targetLaser);
-			
-			for (let i = 0; i<laserCount; i++){
-				laserCooked[i] = new THREEx2.LaserCooked(laserBeams[i],laserReactObjects)
-				laserCooked[i].update()
-				laserObjects[i].lookAt(targetLaser);
-				laserObjects[i].rotateY(THREE.Math.degToRad(-90));
-			}
-		}
-	
-		let activeObject = THREEx2.LaserCooked.intersects
-		
-		if(activeObject.length && activeObject[0].object.name === "mesh_16"){
-			activelyCooking = true
-		}
-		else {
-			activelyCooking = false
-		}
-	}
-
-
-
-	let redValue = 100
-	let redLightSwitch = true
-	const beamOnShell=(elapsedTime)=>{
-		// if mesh-16 'ethereum shell' is touched by laser. 
-		// shellBurnPercent starts at 0 meaning grey, counting up to 100 to = Red
-		if(activelyCooking){
-			shellBurnPercent++ 
-			// Color is max red at 100
-			shell.material.color.set(`hsl(0, ${shellBurnPercent}%, 30% )`)
-			
-			// Flashy Red Warnning Lights
-			if (shellBurnPercent > 200){
-				if(redValue === 200) redLightSwitch = false
-				if(redValue === 100) redLightSwitch = true
-				// lights up red
-				if(redLightSwitch && redValue < 200){
-					redValue += 5
-					powerMaterial.uniforms.uColorStart.value.set(`rgb(${redValue}, 0, 0)`)
-					powerMaterial.uniforms.uColorEnd.value.set(`rgb(${redValue}, 0, 0)`)
-				}
-				// turns down red
-				if(!redLightSwitch && redValue > 100){
-					redValue -= 5
-					powerMaterial.uniforms.uColorStart.value.set(`rgb(${redValue}, 0, 0)`)
-					powerMaterial.uniforms.uColorEnd.value.set(`rgb(${redValue}, 0, 0)`)
-				}	
-			}
-			// Final horse freak out before closing doors. 
-			if (shellBurnPercent > 300){
-				SystemOverload(elapsedTime)
-			}
-			// turn off lasers shortly after power overload.
-			if(shellBurnPercent > 380){
-				laserObjects.forEach(laser => {
-					laser.visible = false
-				});
-				activelyCooking = false
-			}
-		}
-		else if(shellBurnPercent > 0){
-			shellBurnPercent--
-			shell.material.color.set(`hsl(0, ${shellBurnPercent}%, 30% )`)
-			powerMaterial.uniforms.uColorStart.value.set(debugObject.portalColorStart)
-			powerMaterial.uniforms.uColorEnd.value.set(debugObject.portalColorEnd)
-		}
-		
-	}
-
-	// Final Curtain Call
-	const SystemOverload=(elapsedTime)=>{
-		
+	// FINAL SYSTEM OVERLOAD
+	const systemOverload=(elapsedTime)=>{
 		gsap.to(horseHeadGroup.rotation, { duration: 3, delay: 0, y: elapsedTime *2})
 		lasersSwitch = false
 		doorSwitch = false
-		btnsClosedDoor()
+		btnsClosedDoor(btnGreen, btnBlue, btnLeft, btnRight, btnRed)
 		gsap.to(leftDoor.position, { duration: 1, delay: 3, x: 0 })
 		gsap.to(rightDoor.position, { duration: 1, delay: 3, x: 0 })
 	}
 
 	
+	// Atatch laser too mouse move event.
+	const laserFire =()=>raycastBeam(dome, shell, btnGreen, btnRed, btnBlue, btnLeft, btnRight)
+	// Disable Lasers if on
+	const disableLasers =()=> {if (lasersSwitch) redLaserActivation()}
+
+	// LASER TRIGGER
+	let laserReactObjects
+	let {
+		// Contains an array of colors
+		horseHeadFollowMouse,
+		raycastBeam,
+		beamOnShell,
+		laserObjects
+	} = laserActivation(
+		mouse, camera, horseHeadGroup, raycaster, 
+		laserReactObjects, shellBurnPercent, shell, powerMaterial,
+		systemOverload, debugObject
+	);
+	
+
+
 	//////////////////////////////////////////////////////////////////////////////////
 	//		On Mouse Move Events						//
 	//////////////////////////////////////////////////////////////////////////////////
-	const mouse = new THREE.Vector2()
+	
 	document.addEventListener('mousemove', function(event){
 		mouse.x = (event.clientX / window.innerWidth) * 2 - 1
 		mouse.y = - (event.clientY / window.innerHeight) * 2 + 1
@@ -361,9 +268,9 @@ const App = () => {
 	}, false)
 	
 
-		/**
+	/********************
 	 ANIMATIONS Raycaster
-	**/
+	********************/
 	const body = document.querySelector(".render")
 	let intersects, activeBtn, btns, btnLeftRightSwitch, doorSwitch, lasersSwitch = false
 
@@ -377,88 +284,29 @@ const App = () => {
 		});
 	}
 
-	// doorCloseBtnPrep
-	const btnsClosedDoor=()=>{
-		// Disable remaining Btns
-		btns = [btnGreen]
-		// Change material back
-		beforePowerBtns = [ btnRed, btnBlue, btnLeft, btnRight]
-		for (let i =0; i<beforePowerBtns.length; ++i){
-			beforePowerBtns[i].material = sceneMaterial
-			beforePowerBtns[i].position.y = -.0206
-			beforePowerBtns[i].position.z = -.0103
-		}
-		// turn off arrows switch
-		btnLeftRightSwitch = undefined
+
+	/********************
+	BUTTON FUNCTIONALITY
+	********************/
+
+	const btnsSlectionCallBack =(storedBtnsList, storedBtnLeftRightSwitch, storedDoorSwitch)=>{
+		btns = storedBtnsList; 
+		btnLeftRightSwitch = storedBtnLeftRightSwitch;
+		doorSwitch = storedDoorSwitch
 	}
-
-	// Button Logic
-	const disableLasers =()=> {if (lasersSwitch) redLaserActivation()}
-	const btnLogic = (pressedBtn) =>{
-		
-		//Left Arrow - "mesh_8"
-		if(pressedBtn.name === 'mesh_7'){
-			disableLasers()
-			btnLeftRightSwitch === 'right' || btnLeftRightSwitch === undefined?
-				btnLeftRightSwitch = 'left'
-			: btnLeftRightSwitch = undefined
-		}
-		
-		//Right Arrow - "mesh_9"
-		else if(pressedBtn.name === 'mesh_8'){
-			disableLasers()
-			btnLeftRightSwitch === 'left' || btnLeftRightSwitch === undefined?
-				btnLeftRightSwitch = 'right'
-			: btnLeftRightSwitch = undefined
-		}
-
-		// Blue Btn - "mesh_7"
-		else if(pressedBtn.name === 'mesh_6'){
-			let randomInt = Math.floor(Math.random() * 9) // select random number
-			debugObject.portalColorStart = colorSelect[randomInt]
-			randomInt = Math.floor(Math.random() * 9) // select another random number
-			debugObject.portalColorEnd = colorSelect[randomInt]
-			// Change color based on random choice
-			powerMaterial.uniforms.uColorStart.value.set(debugObject.portalColorStart)
-			powerMaterial.uniforms.uColorEnd.value.set(debugObject.portalColorEnd)
-		}
-
-		
-		// Red Btn "mesh_6"
-		else if(pressedBtn.name === 'mesh_5'){
-			btnLeftRightSwitch = undefined
-			redLaserActivation()
-		}
-		
-
-		// Green Btn "mesh_5"
-		else if(pressedBtn.name === 'mesh_4'){
-			doorSwitch = !doorSwitch;
-			if (doorSwitch){
-				gsap.to(leftDoor.position, { duration: 1, delay: 0, x: -3 })
-				gsap.to(rightDoor.position, { duration: 1, delay: 0, x: 3 })
-
-				// Activate remaining Btns
-				btns = [btnRed, btnGreen, btnBlue, btnLeft, btnRight]
-
-				for (let i =0; i<btns.length; ++i){
-					btns[i].position.y = 0
-					btns[i].position.z = 0
-					btns[i].material = btnMaterial
-				}
-			}
-			else {
-				gsap.to(leftDoor.position, { duration: 1, delay: 0, x: 0 })
-				gsap.to(rightDoor.position, { duration: 1, delay: 0, x: 0 })
-
-				btnsClosedDoor()
-				disableLasers()
-			}
-		}
-	}
+	const {
+		btnsClosedDoor,
+		btnLogic
+	} = btnFunctionality (
+		btns, btnGreen, btnBlue, btnLeft, btnRight, 
+		btnRed, sceneMaterial, btnLeftRightSwitch, beforePowerBtns,
+		redLaserActivation, debugObject, colorSelect, powerMaterial,
+		doorSwitch, rightDoor, leftDoor, btnMaterial, lasersSwitch, 
+		btnsSlectionCallBack, disableLasers
+	)
 
 
-	// Button Clicker Animation
+	// Button Clicker Controll Animation
 	let storedBtn = null 
 	window.addEventListener('mousedown', () =>{
 		if(btns && body.style.cursor === 'pointer'){
@@ -471,7 +319,7 @@ const App = () => {
 		if(storedBtn){
 			storedBtn.position.y = 0
 			storedBtn.position.z = 0	
-			btnLogic(activeBtn)	
+			btnLogic(activeBtn, btnGreen, btnBlue, btnLeft, btnRight, btnRed, rightDoor, leftDoor, btnMaterial)	
 			storedBtn = null
 		}	
 	},false)
@@ -507,14 +355,13 @@ const App = () => {
 		stats.begin()
 		// Clock
 		const elapsedTime = clock.getElapsedTime()
-
 		// Update objects to move at same speed regardlass of user framerate.
 		const currentTime = Date.now()
 		const deltaTime = currentTime - time
 		time = currentTime
 		
 		//Controls heat of Etherum
-		beamOnShell(elapsedTime)
+		beamOnShell(elapsedTime, shell)
 
 		// Floor material reflection animation
 		if(mirror){
