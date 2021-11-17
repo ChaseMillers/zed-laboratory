@@ -3,25 +3,30 @@ import * as THREE from "three";
 import gsap from 'gsap'
 import * as dat from 'dat.gui'
 import Stats from 'stats.js'
-import materials from "./materials";
-import shaders from "./shaders";
-import reflections from "./reflections"
+import materials from "./materials/materials";
+import shaders from "./materials/shaders";
+import reflections from "./materials/reflections"
 import gltfLoad from "./gltfLoader"
-import laserActivation from "./laserActivation"
+import laserActivation from "./laser/laserActivation"
 import btnFunctionality from './btnFunctionality'
 
 const App = () => {
   
   const mountRef = useRef(null);
   const raycaster = new THREE.Raycaster()
+	
 
   useEffect(() => {
 
-	/**
+
+
+	/***************************
     DEBUGING UI press H to toggle
-    **/
+    ****************************/
 	const gui = new dat.GUI({ closed: true, hideable: true, width: 400})
 	const debugObject = {}
+
+
 
     /**********
     STATS
@@ -30,6 +35,7 @@ const App = () => {
     stats.showPanel(0) // 0: fps, 1: ms, 2: mb, 3+: custom
     document.body.appendChild(stats.dom)
    
+
 
     /*************
     Scene Setup
@@ -71,7 +77,6 @@ const App = () => {
 	camera.position.z = 3.5
 	camera.lookAt(cameraFocus.position)
 
-	
 	//Renderer
 	const renderer = new THREE.WebGL1Renderer()
 	renderer.setSize( sizes.width, sizes.height );
@@ -96,6 +101,7 @@ const App = () => {
 		alphaBtns,
 	} = materials(shellBurnPercent);
 	
+
 	
 	/***********************************
 	CUSTOM SHADERS 
@@ -103,6 +109,7 @@ const App = () => {
 	const {
 		powerMaterial,
 	} = shaders(colorSelect, scene);
+
 
 
 	/***********************************
@@ -116,120 +123,75 @@ const App = () => {
 	} = reflections(scene)
 
 	
+
 	/***********************************
 	GLTF LOADER
 	************************************/
-	const {
-		gltfLoader
-	} = gltfLoad()
-
-
-	let mirror, horseHead, leftDoor, rightDoor, btnGreen, btnBlue, btnRed, btnLeft, btnRight, beforePowerBtns, stand, shell, btnMaterial, grid, dome, power
-	const horseHeadGroup = new THREE.Group()
-	const loadScene=()=>{
-
-		// GLTF loader
-		gltfLoader.load(
-		  '/exportPackages/sceneMaya.glb', 
-		  (gltf) =>
-		  {   
-			// Horse Head Prep
-			horseHead = gltf.scene.children.find(child => child.name === 'mesh_0')
-			const harnass = gltf.scene.children.find(child => child.name === 'mesh_1')
-			const eyes = gltf.scene.children.find(child => child.name === 'mesh_2')
-			const rotater = gltf.scene.children.find(child => child.name === 'mesh_3')
-			horseHeadGroup.add(horseHead, harnass, eyes, rotater)
-			horseHeadGroup.position.z = -1
-			horseHeadGroup.rotation.y = -.5
-			scene.add(horseHeadGroup)
-			
-			// scene prep
-			btnGreen = gltf.scene.children.find(child => child.name === 'mesh_4')
-			btnBlue = gltf.scene.children.find(child => child.name === 'mesh_5')
-			btnRed = gltf.scene.children.find(child => child.name === 'mesh_6')
-			btnLeft = gltf.scene.children.find(child => child.name === 'mesh_7')
-			btnRight = gltf.scene.children.find(child => child.name === 'mesh_8')
-			dome = gltf.scene.children.find(child => child.name === 'mesh_9')
-			const zed = gltf.scene.children.find(child => child.name === 'mesh_10')
-			power = gltf.scene.children.find(child => child.name === 'mesh_11')
-			mirror = gltf.scene.children.find(child => child.name === 'mesh_12')
-			leftDoor = gltf.scene.children.find(child => child.name === 'mesh_13')
-			rightDoor = gltf.scene.children.find(child => child.name === 'mesh_14')
-			stand = gltf.scene.children.find(child => child.name === 'mesh_15')
-			shell = gltf.scene.children.find(child => child.name === 'mesh_16')
-			grid = gltf.scene.children.find(child => child.name === 'mesh_17')
-
-			// material assigments
-			horseHead.material = horseReflectionMaterial
-			rotater.material = sceneMaterial
-			harnass.material = zedMaterial
-			zed.material = zedMaterial
-			eyes.material = laserMaterial
-			dome.material = sceneMaterial
-			power.material = powerMaterial
-			mirror.material = floorReflectionMaterial
-			leftDoor.material = sceneMaterial
-			rightDoor.material = sceneMaterial
-			stand.material = sceneMaterial
-			shell.material = shellMaterial
-			grid.material = gridMaterial
-			
-			// Wireframe Helper, EdgesGeometry will render the hard edges only, also WireframeGeometry for all edges.
-			let wireframeGeo = [stand, horseHead] 
-			const wireframeMaterial = new THREE.LineBasicMaterial( { color: 0x111111})
-			for (let i =0; i<wireframeGeo.length; ++i){ 
-				const wireframeGeometry = new THREE.EdgesGeometry( wireframeGeo[i].geometry );
-				const wireframe = new THREE.LineSegments( wireframeGeometry, wireframeMaterial );
-				wireframeGeo[i].add( wireframe );
-			}
-
-			// Button prep
-			beforePowerBtns = [ btnRed, btnBlue, btnLeft, btnRight]
-			for (let i =0; i<beforePowerBtns.length; ++i){
-				beforePowerBtns[i].material = sceneMaterial
-				beforePowerBtns[i].position.y = -.0206
-				beforePowerBtns[i].position.z = -.0103
-
-				// add material group
-				beforePowerBtns[i].geometry.addGroup(0, Infinity, 0);
-				beforePowerBtns[i].geometry.addGroup(0, Infinity, 1);
-			}
-
-			// Perpare start btn
-			btns = [btnGreen]
-			btnMaterial = [sceneMaterial, alphaBtns];
-
-			for (let i =0; i<btns.length; ++i){
-				btns[i].geometry.addGroup(0, Infinity, 0);
-				btns[i].geometry.addGroup(0, Infinity, 1);
-				btns[i].material = btnMaterial
-			}
-
-			scene.add(gltf.scene)
-			}
-		)
+	// Interactive variables
+	// Match order to the gltfLoader storedInteractiveObjects[] 
+	// Scene Interactive Objects
+	let object = {
+		mirror : null,
+		leftDoor : null,
+		rightDoor : null,
+		btnGreen : null,
+		btnBlue : null,
+		btnRed : null,
+		btnLeft : null,
+		btnRight : null,
+		beforePowerBtns : null,
+		shell : null,
+		btnMaterial : null,
+		grid : null,
+		dome : null,
+		btns : null,
+		horseHead: null
 	}
-	loadScene()	
+
+	// Update objects
+	const gltfLoaderValuesCallBack=(storedInteractiveObjects)=>{
+		let i = 0
+		for (let property in object){
+			object[property] = storedInteractiveObjects[i]
+			console.log(`${property}: ${object[property]}`);
+			++i
+		}
+	}
 	
+	// Call Loader
+	const horseHeadGroup = new THREE.Group()
+	const {
+		loadScene,
+	} = gltfLoad(
+		object.mirror, object.leftDoor, object.rightDoor, object.btnGreen, object.btnBlue, 
+		object.btnRed, object.btnLeft, object.btnRight, object.beforePowerBtns, object.shell, 
+		object.btnMaterial, object.grid, object.dome, horseHeadGroup, scene, object.horseHead,
+		sceneMaterial, shellMaterial, gridMaterial, object.btns, horseReflectionMaterial,
+		zedMaterial, laserMaterial, powerMaterial, floorReflectionMaterial,
+		alphaBtns
+		)
+	loadScene(gltfLoaderValuesCallBack)
+	
+
 
     /*********************
 	LASER!
 	**********************/
-	
+
 	// FINAL SYSTEM OVERLOAD
 	const systemOverload=(elapsedTime)=>{
 		gsap.to(horseHeadGroup.rotation, { duration: 3, delay: 0, y: elapsedTime *2})
 		lasersSwitch = false
 		doorSwitch = false
-		btnsClosedDoor(btnGreen, btnBlue, btnLeft, btnRight, btnRed)
-		gsap.to(leftDoor.position, { duration: 1, delay: 3, x: 0 })
-		gsap.to(rightDoor.position, { duration: 1, delay: 3, x: 0 })
+		btnsClosedDoor(object.btnGreen, object.btnBlue, object.btnLeft, object.btnRight, object.btnRed)
+		gsap.to(object.leftDoor.position, { duration: 1, delay: 3, x: 0 })
+		gsap.to(object.rightDoor.position, { duration: 1, delay: 3, x: 0 })
 	}
 
-	
 	// Atatch laser too mouse move event.
-	const laserFire =()=>raycastBeam(dome, shell, btnGreen, btnRed, btnBlue, btnLeft, btnRight)
-	// Disable Lasers if on
+	const laserFire =()=>raycastBeam(object.dome, object.shell, object.btnGreen, object.btnRed, object.btnBlue, object.btnLeft, object.btnRight)
+	
+	// Disable Lasers if switch is on
 	const disableLasers =()=> {if (lasersSwitch) redLaserActivation()}
 
 	// LASER TRIGGER
@@ -242,9 +204,22 @@ const App = () => {
 		laserObjects
 	} = laserActivation(
 		mouse, camera, horseHeadGroup, raycaster, 
-		laserReactObjects, shellBurnPercent, shell, powerMaterial,
+		laserReactObjects, shellBurnPercent, object.shell, powerMaterial,
 		systemOverload, debugObject
 	);
+
+	const body = document.querySelector(".render")
+	let intersects, activeBtn, btnLeftRightSwitch, doorSwitch, lasersSwitch = false
+
+	// Red laser activation function
+	const redLaserActivation=()=>{
+		// turns on lasers and horse head follow
+		lasersSwitch = !lasersSwitch
+		// makes lasers visible
+		laserObjects.forEach(laser => {
+			laser.visible = !laser.visible
+		});
+	}
 	
 
 
@@ -268,48 +243,33 @@ const App = () => {
 	}, false)
 	
 
-	/********************
-	 ANIMATIONS Raycaster
-	********************/
-	const body = document.querySelector(".render")
-	let intersects, activeBtn, btns, btnLeftRightSwitch, doorSwitch, lasersSwitch = false
-
-	// Red laser activation function
-	const redLaserActivation=()=>{
-		// turns on lasers and horse head follow
-		lasersSwitch = !lasersSwitch
-		// makes lasers visible
-		laserObjects.forEach(laser => {
-			laser.visible = !laser.visible
-		});
-	}
-
 
 	/********************
 	BUTTON FUNCTIONALITY
 	********************/
 
+	//Update Buttons
 	const btnsSlectionCallBack =(storedBtnsList, storedBtnLeftRightSwitch, storedDoorSwitch)=>{
-		btns = storedBtnsList; 
+		object.btns = storedBtnsList; 
 		btnLeftRightSwitch = storedBtnLeftRightSwitch;
 		doorSwitch = storedDoorSwitch
 	}
+
 	const {
 		btnsClosedDoor,
 		btnLogic
 	} = btnFunctionality (
-		btns, btnGreen, btnBlue, btnLeft, btnRight, 
-		btnRed, sceneMaterial, btnLeftRightSwitch, beforePowerBtns,
+		object.btns, object.btnGreen, object.btnBlue, object.btnLeft, object.btnRight, 
+		object.btnRed, sceneMaterial, btnLeftRightSwitch, object.beforePowerBtns,
 		redLaserActivation, debugObject, colorSelect, powerMaterial,
-		doorSwitch, rightDoor, leftDoor, btnMaterial, lasersSwitch, 
+		doorSwitch, object.rightDoor, object.leftDoor, object.btnMaterial, lasersSwitch, 
 		btnsSlectionCallBack, disableLasers
 	)
-
 
 	// Button Clicker Controll Animation
 	let storedBtn = null 
 	window.addEventListener('mousedown', () =>{
-		if(btns && body.style.cursor === 'pointer'){
+		if(object.btns && body.style.cursor === 'pointer'){
 			storedBtn = activeBtn
 			storedBtn.position.y = -.0206
 			storedBtn.position.z = -.0103
@@ -319,19 +279,21 @@ const App = () => {
 		if(storedBtn){
 			storedBtn.position.y = 0
 			storedBtn.position.z = 0	
-			btnLogic(activeBtn, btnGreen, btnBlue, btnLeft, btnRight, btnRed, rightDoor, leftDoor, btnMaterial)	
+			btnLogic(
+				activeBtn, object.btnGreen, object.btnBlue, object.btnLeft, object.btnRight, 
+				object.btnRed, object.rightDoor, object.leftDoor, object.btnMaterial
+				)	
 			storedBtn = null
 		}	
 	},false)
-	
 
 	// Raycaster currently activated in mouse listener. 
 	const rayCaster=()=>{
-		if(btns){
+		if(object.btns){
 			// Cast ray
 			raycaster.setFromCamera(mouse, camera)
 			// Reacting to buttons
-			intersects = raycaster.intersectObjects(btns)
+			intersects = raycaster.intersectObjects(object.btns)
 			
 			if(intersects.length)
 			{
@@ -346,9 +308,10 @@ const App = () => {
 
 
 
-	/*
+	/********************
 	ANIMATION
-	*/
+	*********************/
+
 	let time = Date.now()
 	const clock = new THREE.Clock()
 	const animate =()=> {
@@ -361,21 +324,22 @@ const App = () => {
 		time = currentTime
 		
 		//Controls heat of Etherum
-		beamOnShell(elapsedTime, shell)
+		beamOnShell(elapsedTime, object.shell)
 
 		// Floor material reflection animation
-		if(mirror){
-			mirror.visible = false;
-			grid.visible = false;
+		if(object.mirror){
+			object.mirror.visible = false;
+			object.grid.visible = false;
 			cubeCamera1.update( renderer, scene );
-			mirror.visible = true;
-			grid.visible = true;
+			object.mirror.visible = true;
+			object.grid.visible = true;
 		}
+
 		// Horse Head Reflection
-		if(horseHead){
-			horseHead.visible = false;
+		if(object.horseHead){
+			object.horseHead.visible = false;
 			cubeCamera2.update( renderer, scene );
-			horseHead.visible = true;
+			object.horseHead.visible = true;
 		}
 
 		//Buttons Left/Right
@@ -399,8 +363,10 @@ const App = () => {
 	animate()
     
 
-    
-	// Debug parameters
+
+	/********************
+	DEBUG PARAMETERS
+	*********************/
 
     debugObject.portalColorStart = colorSelect[1]
     debugObject.portalColorEnd = colorSelect[2]
@@ -423,7 +389,7 @@ const App = () => {
     gui.add(camera.position, 'z').min(-6).max(6).step(.01).name('backward-forward')
     
 
-    // MOUNT TO OUR REFRENCE 
+    // MOUNT TO REFRENCE 
     mountRef.current.appendChild( renderer.domElement );
     return () => mountRef.current.removeChild( renderer.domElement);   
   }, []);

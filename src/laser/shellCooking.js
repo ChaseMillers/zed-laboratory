@@ -54,8 +54,7 @@ const shellCooking = (
 			powerMaterial.uniforms.uColorStart.value.set(debugObject.portalColorStart)
 			powerMaterial.uniforms.uColorEnd.value.set(debugObject.portalColorEnd)
 		}
-	}
-	
+	}	
 
 	return {
 		beamOnShell,

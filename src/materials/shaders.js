@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import PortalVertex from './shaders/powerVertex.glsl'
-import PowerFragment from './shaders/powerFragment.glsl'
+import PortalVertex from '../shaders/powerVertex.glsl'
+import PowerFragment from '../shaders/powerFragment.glsl'
 
 const shaders = (colorSelect, scene) => {
 
