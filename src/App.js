@@ -314,7 +314,8 @@ const App = () => {
 	let time = Date.now()
 	const clock = new THREE.Clock()
 	const animate =()=> {
-		stats.begin()
+		// stats.begin() // - For Testing 
+
 		// Clock
 		const elapsedTime = clock.getElapsedTime()
 		// Update objects to move at same speed regardlass of user framerate.
@@ -357,7 +358,7 @@ const App = () => {
 		renderer.render( scene, camera );
 	
 		requestAnimationFrame( animate );
-		stats.end()
+		// stats.end() // - For Testing
 	};
 	animate()
     
