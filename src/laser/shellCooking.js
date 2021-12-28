@@ -9,18 +9,19 @@ const shellCooking = (
 	activelyCooking = false
 	const isLaserOnShellCallBack=(bool)=>{activelyCooking = bool}
 
+
 	const beamOnShell=(elapsedTime, shell)=>{
 		// If mesh-16 'ethereum shell' is touched by laser. 
 		// shellBurnPercent starts at 0 meaning grey, counting up to 100 to = Red
 		if(activelyCooking){
-			shellBurnPercent++ 
-			// colorValueCallBacks(shellBurnPercent, redValue)
+
+			shellBurnPercent ++
 
 			// Color is max red at 100
 			shell.material.color.set(`hsl(0, ${shellBurnPercent}%, 30% )`)
 			
 			// Flashy Red Warnning Lights
-			if (shellBurnPercent > 200){
+			if (shellBurnPercent > 100){
 				if(redValue === 200) redLightSwitch = false
 				if(redValue === 100) redLightSwitch = true
 				// lights up red
@@ -37,11 +38,11 @@ const shellCooking = (
 				}	
 			}
 			// Final horse freak out before closing doors. 
-			if (shellBurnPercent > 300){
-				systemOverload(elapsedTime)
+			if (shellBurnPercent > 200){
+				systemOverload(elapsedTime * 3)
 			}
 			// turn off lasers shortly after power overload.
-			if(shellBurnPercent > 380){
+			if(shellBurnPercent > 280){
 				laserObjects.forEach(laser => {
 					laser.visible = false
 				});
