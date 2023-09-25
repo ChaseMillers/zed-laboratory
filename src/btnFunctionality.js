@@ -68,6 +68,7 @@ const btnFunctionality = (
 		else if(pressedBtn.name === 'mesh_5'){
 			btnLeftRightSwitch = undefined
 			redLaserActivation()
+			btnsSlectionCallBack(btns, btnLeftRightSwitch)
 		}
 		
 
